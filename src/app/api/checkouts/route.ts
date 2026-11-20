@@ -4,12 +4,19 @@ import { assignedTruckIds } from "@/lib/auth";
 import { stockAlertWorsened } from "@/lib/email";
 import { requireAdmin, requireUser, forbidWrongTruck } from "@/lib/guard";
 import { sendLowStockAlertsNow } from "@/lib/run-alerts";
+import { stockMissingResponse } from "@/lib/stock-missing-response";
 
 export async function GET() {
   const { error } = await requireAdmin();
   if (error) return error;
-  const checkouts = await listCheckouts();
-  return NextResponse.json(checkouts);
+  try {
+    const checkouts = await listCheckouts();
+    return NextResponse.json(checkouts);
+  } catch (err) {
+    const missing = stockMissingResponse(err);
+    if (missing) return missing;
+    throw err;
+  }
 }
 
 export async function POST(request: Request) {

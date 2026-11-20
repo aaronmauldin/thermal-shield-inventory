@@ -2,23 +2,30 @@ import { NextResponse } from "next/server";
 import { createJob, listJobs } from "@/lib/db";
 import { assignedTruckIds } from "@/lib/auth";
 import { forbidWrongTruck, requireUser } from "@/lib/guard";
+import { stockMissingResponse } from "@/lib/stock-missing-response";
 
 export async function GET(request: Request) {
   const { user, error } = await requireUser();
   if (error) return error;
   const requested = new URL(request.url).searchParams.get("truckId") || undefined;
-  if (user?.role === "crew") {
-    const assigned = assignedTruckIds(user);
-    const denied = forbidWrongTruck(user, requested);
-    if (denied) return denied;
-    if (assigned.length === 0) {
-      return NextResponse.json({ error: "Admins only" }, { status: 403 });
+  try {
+    if (user?.role === "crew") {
+      const assigned = assignedTruckIds(user);
+      const denied = forbidWrongTruck(user, requested);
+      if (denied) return denied;
+      if (assigned.length === 0) {
+        return NextResponse.json({ error: "Admins only" }, { status: 403 });
+      }
+      return NextResponse.json(
+        await listJobs(requested ? requested : assigned)
+      );
     }
-    return NextResponse.json(
-      await listJobs(requested ? requested : assigned)
-    );
+    return NextResponse.json(await listJobs(requested));
+  } catch (err) {
+    const missing = stockMissingResponse(err);
+    if (missing) return missing;
+    throw err;
   }
-  return NextResponse.json(await listJobs(requested));
 }
 
 export async function POST(request: Request) {

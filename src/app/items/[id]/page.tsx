@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { ItemForm } from "@/components/ItemForm";
+import { StockMissingNotice } from "@/components/StockMissingNotice";
 import { getItem, listCategories } from "@/lib/db";
 import { requireAdminPage } from "@/lib/guard";
+import { isStockDataMissing } from "@/lib/stock-missing";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +12,14 @@ type Props = { params: Promise<{ id: string }> };
 export default async function EditItemPage({ params }: Props) {
   await requireAdminPage();
   const { id } = await params;
-  const [item, categories] = await Promise.all([getItem(id), listCategories()]);
+  let item;
+  let categories;
+  try {
+    [item, categories] = await Promise.all([getItem(id), listCategories()]);
+  } catch (err) {
+    if (isStockDataMissing(err)) return <StockMissingNotice showSettingsLink />;
+    throw err;
+  }
   if (!item) notFound();
 
   return (

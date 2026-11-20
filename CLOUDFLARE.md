@@ -74,6 +74,16 @@ Still uses the local `data/inventory.json` file on your computer.
 
 Templates and inventory stay in KV when you redeploy. Jobber tokens are stored in the same inventory data blob.
 
+## Restore code
+
+Settings → Restore backup asks for a code. The server checks it before replacing inventory. Set the code as a Worker secret from this project folder. Wrangler prompts for the value. Do not put that value in the repo.
+
+```bash
+npx wrangler secret put RESTORE_CODE
+```
+
+If that secret is missing in production, restore is refused.
+
 ## Later (optional)
 
 Connect `inventory.your-wix-domain.com` in Cloudflare → Workers → Custom domains.

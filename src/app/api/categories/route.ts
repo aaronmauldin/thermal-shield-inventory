@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
 import { createCategory, listCategories } from "@/lib/db";
 import { requireAdmin, requireUser } from "@/lib/guard";
+import { stockMissingResponse } from "@/lib/stock-missing-response";
 
 export async function GET() {
   const { error } = await requireUser();
   if (error) return error;
-  const categories = await listCategories();
-  return NextResponse.json(categories);
+  try {
+    const categories = await listCategories();
+    return NextResponse.json(categories);
+  } catch (err) {
+    const missing = stockMissingResponse(err);
+    if (missing) return missing;
+    throw err;
+  }
 }
 
 export async function POST(request: Request) {

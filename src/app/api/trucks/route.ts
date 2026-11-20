@@ -2,11 +2,19 @@ import { NextResponse } from "next/server";
 import { createTruck, listTrucks } from "@/lib/db";
 import { assignedTruckIds } from "@/lib/auth";
 import { requireAdmin, requireUser } from "@/lib/guard";
+import { stockMissingResponse } from "@/lib/stock-missing-response";
 
 export async function GET() {
   const { user, error } = await requireUser();
   if (error) return error;
-  const trucks = await listTrucks();
+  let trucks;
+  try {
+    trucks = await listTrucks();
+  } catch (err) {
+    const missing = stockMissingResponse(err);
+    if (missing) return missing;
+    throw err;
+  }
   if (user?.role === "crew") {
     const assigned = assignedTruckIds(user);
     return NextResponse.json(

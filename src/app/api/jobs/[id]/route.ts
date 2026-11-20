@@ -10,6 +10,7 @@ import {
   useTruckMaterialsOnJob,
 } from "@/lib/db";
 import { requireUser, forbidWrongTruck } from "@/lib/guard";
+import { stockMissingResponse } from "@/lib/stock-missing-response";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -17,13 +18,19 @@ export async function GET(_request: Request, { params }: Params) {
   const { user, error } = await requireUser();
   if (error) return error;
   const { id } = await params;
-  const job = await getJob(id);
-  if (!job) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  try {
+    const job = await getJob(id);
+    if (!job) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    const denied = forbidWrongTruck(user, job.truckId);
+    if (denied) return denied;
+    return NextResponse.json(job);
+  } catch (err) {
+    const missing = stockMissingResponse(err);
+    if (missing) return missing;
+    throw err;
   }
-  const denied = forbidWrongTruck(user, job.truckId);
-  if (denied) return denied;
-  return NextResponse.json(job);
 }
 
 export async function PATCH(request: Request, { params }: Params) {
@@ -140,15 +147,21 @@ export async function DELETE(_request: Request, { params }: Params) {
   const { user, error } = await requireUser();
   if (error) return error;
   const { id } = await params;
-  const job = await getJob(id);
-  if (!job) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  try {
+    const job = await getJob(id);
+    if (!job) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    const denied = forbidWrongTruck(user, job.truckId);
+    if (denied) return denied;
+    const ok = await deleteJob(id);
+    if (!ok) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const missing = stockMissingResponse(err);
+    if (missing) return missing;
+    throw err;
   }
-  const denied = forbidWrongTruck(user, job.truckId);
-  if (denied) return denied;
-  const ok = await deleteJob(id);
-  if (!ok) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-  return NextResponse.json({ ok: true });
 }

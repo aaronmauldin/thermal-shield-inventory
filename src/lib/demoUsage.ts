@@ -1,7 +1,8 @@
 import { randomUUID } from "crypto";
+import { DEMO_USAGE_NOTE, isDemoUsageJob } from "./demo-usage-mark";
 import type { AppData, InventoryItem, JobMaterial, JobRecord, Truck } from "./types";
 
-export const DEMO_USAGE_NOTE = "[demo-usage]";
+export { DEMO_USAGE_NOTE, isDemoUsageJob };
 
 const STREETS = [
   "Oak St",
@@ -41,10 +42,6 @@ function line(item: InventoryItem | null, quantity: number): JobMaterial | null 
     quantity,
     unit: item.unit,
   };
-}
-
-export function isDemoUsageJob(job: JobRecord) {
-  return (job.notes || "").includes(DEMO_USAGE_NOTE);
 }
 
 function atNoonEastern(year: number, monthIndex: number, day: number) {

@@ -3,6 +3,7 @@ import { deleteItem, getItem, updateItem } from "@/lib/db";
 import { stockAlertWorsened } from "@/lib/email";
 import { requireAdmin, requireUser } from "@/lib/guard";
 import { triggerLowStockAlerts } from "@/lib/run-alerts";
+import { stockMissingResponse } from "@/lib/stock-missing-response";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -10,11 +11,17 @@ export async function GET(_request: Request, { params }: Params) {
   const { error } = await requireUser();
   if (error) return error;
   const { id } = await params;
-  const item = await getItem(id);
-  if (!item) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  try {
+    const item = await getItem(id);
+    if (!item) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    return NextResponse.json(item);
+  } catch (err) {
+    const missing = stockMissingResponse(err);
+    if (missing) return missing;
+    throw err;
   }
-  return NextResponse.json(item);
 }
 
 export async function PATCH(request: Request, { params }: Params) {

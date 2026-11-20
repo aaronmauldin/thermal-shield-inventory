@@ -21,6 +21,7 @@ import {
 } from "./types";
 import { compareJobsBySchedule, formatYmdInZone, parseJobberNameList } from "./jobSort";
 import { applyDemoUsageJobs } from "./demoUsage";
+import { StockDataMissingError } from "./stock-missing";
 
 const defaultSettings: AppSettings = {
   alertEmail: "",
@@ -413,6 +414,11 @@ function buildSeedData(): AppData {
 export async function readData(): Promise<AppData> {
   const raw = await loadRawData();
   if (!raw) {
+    // Production must not invent a catalog when the inventory key is empty.
+    // `next dev` still seeds data/inventory.json so local setup stays the same.
+    if (process.env.NODE_ENV === "production") {
+      throw new StockDataMissingError();
+    }
     const seeded = buildSeedData();
     await saveRawData(seeded);
     return seeded;
@@ -447,6 +453,51 @@ export async function readData(): Promise<AppData> {
 
 export async function writeData(data: AppData): Promise<void> {
   await saveRawData(data);
+}
+
+/** Inventory snapshot for download. Secrets are cleared and are not written back. */
+export async function readInventoryForBackup(): Promise<AppData> {
+  const data = await readData();
+  return {
+    ...data,
+    settings: { ...data.settings, smtpPass: "" },
+    jobber: null,
+  };
+}
+
+/**
+ * Replace inventory with a backup. Keeps the live Jobber connection and SMTP
+ * password when the current document can still be read.
+ */
+export async function replaceStoredInventory(
+  partial: Partial<AppData>
+): Promise<{ items: number; trucks: number; jobs: number }> {
+  const next = normalizeData({
+    ...partial,
+    settings: partial.settings
+      ? { ...partial.settings, smtpPass: "" }
+      : partial.settings,
+    jobber: null,
+  });
+  const raw = await loadRawData();
+  if (raw) {
+    try {
+      const current = normalizeData(JSON.parse(raw) as Partial<AppData>);
+      next.jobber = current.jobber;
+      next.settings = {
+        ...next.settings,
+        smtpPass: current.settings.smtpPass || "",
+      };
+    } catch {
+      // The stored document is unreadable. The uploaded backup replaces it.
+    }
+  }
+  await writeData(next);
+  return {
+    items: next.items.length,
+    trucks: next.trucks.length,
+    jobs: next.jobs.length,
+  };
 }
 
 export async function listItems(): Promise<InventoryItem[]> {

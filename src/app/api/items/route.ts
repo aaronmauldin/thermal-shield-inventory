@@ -2,12 +2,19 @@ import { NextResponse } from "next/server";
 import { createItem, listCategories, listItems } from "@/lib/db";
 import { requireAdmin, requireUser } from "@/lib/guard";
 import { triggerLowStockAlerts } from "@/lib/run-alerts";
+import { stockMissingResponse } from "@/lib/stock-missing-response";
 
 export async function GET() {
   const { error } = await requireUser();
   if (error) return error;
-  const items = await listItems();
-  return NextResponse.json(items);
+  try {
+    const items = await listItems();
+    return NextResponse.json(items);
+  } catch (err) {
+    const missing = stockMissingResponse(err);
+    if (missing) return missing;
+    throw err;
+  }
 }
 
 export async function POST(request: Request) {
