@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildBackup, restoreBackup } from "@/lib/backup";
 import { requireAdmin } from "@/lib/guard";
+import { checkRestoreCode } from "@/lib/restore-code";
 import { stockMissingResponse } from "@/lib/stock-missing-response";
 
 const MAX_BACKUP_CHARS = 20_000_000;
@@ -33,6 +34,16 @@ export async function GET() {
 export async function POST(request: Request) {
   const { error } = await requireAdmin();
   if (error) return error;
+  const codeCheck = await checkRestoreCode(request.headers.get("x-restore-code") || "");
+  if (codeCheck === "unset") {
+    return NextResponse.json(
+      { error: "Restore code isn't configured" },
+      { status: 503 }
+    );
+  }
+  if (codeCheck === "wrong") {
+    return NextResponse.json({ error: "Wrong restore code" }, { status: 400 });
+  }
   try {
     const text = await request.text();
     if (text.length > MAX_BACKUP_CHARS) {

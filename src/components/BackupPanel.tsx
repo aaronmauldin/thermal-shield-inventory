@@ -6,6 +6,8 @@ export function BackupPanel() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [restoreCode, setRestoreCode] = useState("");
 
   async function download() {
     setBusy(true);
@@ -38,29 +40,44 @@ export function BackupPanel() {
     }
   }
 
-  async function restoreFile(file: File | undefined) {
+  function chooseRestoreFile(file: File | undefined) {
     if (!file) return;
-    const confirmed = confirm(
-      "Replace stock, trucks, jobs, templates, and checkout history with this backup? Logins and the Jobber connection on this site stay as they are."
-    );
-    if (!confirmed) return;
+    setMessage("");
+    setError("");
+    setRestoreCode("");
+    setPendingFile(file);
+  }
+
+  function cancelRestore() {
+    setPendingFile(null);
+    setRestoreCode("");
+  }
+
+  async function confirmRestore(event: React.FormEvent) {
+    event.preventDefault();
+    if (!pendingFile) return;
     setBusy(true);
     setMessage("");
     setError("");
     try {
-      const text = await file.text();
+      const text = await pendingFile.text();
       const res = await fetch("/api/backup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Restore-Code": restoreCode,
+        },
         body: text,
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Could not restore backup");
+      setRestoreCode("");
       setMessage(
         `Restored ${data.items ?? 0} materials, ${data.trucks ?? 0} trucks, and ${data.jobs ?? 0} jobs.`
       );
       window.location.reload();
     } catch (err) {
+      setRestoreCode("");
       setError(err instanceof Error ? err.message : "Could not restore backup");
       setBusy(false);
     }
@@ -76,38 +93,72 @@ export function BackupPanel() {
         tokens, or the email password. Treat the file as private.
       </p>
       <p>
-        To restore, choose a file from Download backup. That replaces inventory
-        on this site. People keep their logins. If Jobber was connected, it
-        stays connected. On a brand-new install, sign in first, then restore,
-        then connect Jobber again and re-enter the email password if you use
-        SMTP.
+        To restore, choose a file from Download backup and enter the restore
+        code. That replaces inventory on this site. People keep their logins.
+        If Jobber was connected, it stays connected. On a brand-new install,
+        sign in first, then restore, then connect Jobber again and re-enter
+        the email password if you use SMTP.
       </p>
       {message ? <p className="form-success">{message}</p> : null}
       {error ? <p className="form-error">{error}</p> : null}
-      <div className="form-actions">
-        <button
-          type="button"
-          className="btn btn-secondary"
-          disabled={busy}
-          onClick={() => void download()}
-        >
-          {busy ? "Working..." : "Download backup"}
-        </button>
-        <label className="btn btn-primary" style={{ cursor: busy ? "default" : "pointer" }}>
-          {busy ? "Working..." : "Restore backup"}
-          <input
-            type="file"
-            accept="application/json,.json"
+      {pendingFile ? (
+        <form onSubmit={(event) => void confirmRestore(event)}>
+          <p>
+            Replace stock, trucks, jobs, templates, and checkout history with
+            this backup? Logins and the Jobber connection on this site stay as
+            they are.
+          </p>
+          <div className="field">
+            <label htmlFor="restore-code">Restore code</label>
+            <input
+              id="restore-code"
+              type="password"
+              autoComplete="off"
+              value={restoreCode}
+              onChange={(event) => setRestoreCode(event.target.value)}
+              disabled={busy}
+            />
+          </div>
+          <div className="form-actions">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={busy}
+              onClick={cancelRestore}
+            >
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={busy}>
+              {busy ? "Working..." : "Restore backup"}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="form-actions">
+          <button
+            type="button"
+            className="btn btn-secondary"
             disabled={busy}
-            style={{ display: "none" }}
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              event.target.value = "";
-              void restoreFile(file);
-            }}
-          />
-        </label>
-      </div>
+            onClick={() => void download()}
+          >
+            {busy ? "Working..." : "Download backup"}
+          </button>
+          <label className="btn btn-primary" style={{ cursor: busy ? "default" : "pointer" }}>
+            Restore backup
+            <input
+              type="file"
+              accept="application/json,.json"
+              disabled={busy}
+              style={{ display: "none" }}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                chooseRestoreFile(file);
+              }}
+            />
+          </label>
+        </div>
+      )}
     </section>
   );
 }
