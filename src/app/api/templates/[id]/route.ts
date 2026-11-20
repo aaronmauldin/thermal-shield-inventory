@@ -5,6 +5,7 @@ import {
   updateLineItemTemplate,
 } from "@/lib/db";
 import { requireAdmin } from "@/lib/guard";
+import { stockMissingResponse } from "@/lib/stock-missing-response";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -12,11 +13,17 @@ export async function GET(_request: Request, { params }: Params) {
   const { error } = await requireAdmin();
   if (error) return error;
   const { id } = await params;
-  const template = await getLineItemTemplate(id);
-  if (!template) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  try {
+    const template = await getLineItemTemplate(id);
+    if (!template) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    return NextResponse.json(template);
+  } catch (err) {
+    const missing = stockMissingResponse(err);
+    if (missing) return missing;
+    throw err;
   }
-  return NextResponse.json(template);
 }
 
 export async function PATCH(request: Request, { params }: Params) {

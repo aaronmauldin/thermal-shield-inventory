@@ -6,6 +6,7 @@ import {
 } from "@/lib/db";
 import { assignedTruckIds } from "@/lib/auth";
 import { requireUser, forbidWrongTruck } from "@/lib/guard";
+import { stockMissingResponse } from "@/lib/stock-missing-response";
 
 function crewTruckId(
   user: { role: string; truckId?: string | null; truckIds?: string[] } | null,
@@ -25,7 +26,13 @@ export async function GET(request: Request) {
   const truckId = crewTruckId(user, requested);
   const denied = forbidWrongTruck(user, requested || truckId);
   if (denied) return denied;
-  return NextResponse.json(await getInsulationTally(truckId));
+  try {
+    return NextResponse.json(await getInsulationTally(truckId));
+  } catch (err) {
+    const missing = stockMissingResponse(err);
+    if (missing) return missing;
+    throw err;
+  }
 }
 
 export async function POST(request: Request) {

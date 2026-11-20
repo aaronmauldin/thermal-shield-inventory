@@ -1,18 +1,25 @@
 import { NextResponse } from "next/server";
 import { getSettings, updateSettings } from "@/lib/db";
 import { requireAdmin, requireUser } from "@/lib/guard";
+import { stockMissingResponse } from "@/lib/stock-missing-response";
 
 export async function GET() {
   const { user, error } = await requireUser();
   if (error) return error;
-  const settings = await getSettings();
-  if (user?.role !== "admin") {
-    return NextResponse.json({ companyName: settings.companyName });
+  try {
+    const settings = await getSettings();
+    if (user?.role !== "admin") {
+      return NextResponse.json({ companyName: settings.companyName });
+    }
+    return NextResponse.json({
+      ...settings,
+      smtpPass: settings.smtpPass ? "••••••••" : "",
+    });
+  } catch (err) {
+    const missing = stockMissingResponse(err);
+    if (missing) return missing;
+    throw err;
   }
-  return NextResponse.json({
-    ...settings,
-    smtpPass: settings.smtpPass ? "••••••••" : "",
-  });
 }
 
 export async function PATCH(request: Request) {

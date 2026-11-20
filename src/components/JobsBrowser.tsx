@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { isDemoUsageJob } from "@/lib/demo-usage-mark";
 import type { JobRecord } from "@/lib/types";
 import {
   buildPeriodBuckets,
@@ -33,11 +34,16 @@ export function JobsBrowser() {
       );
   }, []);
 
+  const countedJobs = useMemo(
+    () => (jobs ? jobs.filter((job) => !isDemoUsageJob(job)) : null),
+    [jobs]
+  );
+
   const visible = useMemo(() => {
-    if (!jobs) return [];
+    if (!countedJobs) return [];
     const q = query.trim().toLowerCase();
-    if (!q) return jobs;
-    return jobs.filter((job) => {
+    if (!q) return countedJobs;
+    return countedJobs.filter((job) => {
       const hay = [
         job.name,
         job.location,
@@ -49,7 +55,7 @@ export function JobsBrowser() {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [jobs, query]);
+  }, [countedJobs, query]);
 
   const buckets = useMemo(
     () => buildPeriodBuckets(visible, mode),
@@ -164,17 +170,19 @@ export function JobsBrowser() {
             </button>
           </div>
         </div>
-        <div className="field" style={{ justifyContent: "end" }}>
-          <label>&nbsp;</label>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            disabled={seeding}
-            onClick={() => void loadDemoJobs()}
-          >
-            {seeding ? "Adding sample jobs..." : "Add 2 months of sample jobs"}
-          </button>
-        </div>
+        {process.env.NODE_ENV !== "production" ? (
+          <div className="field" style={{ justifyContent: "end" }}>
+            <label>&nbsp;</label>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={seeding}
+              onClick={() => void loadDemoJobs()}
+            >
+              {seeding ? "Adding sample jobs..." : "Add 2 months of sample jobs"}
+            </button>
+          </div>
+        ) : null}
       </section>
       {error ? <p className="form-error">{error}</p> : null}
 

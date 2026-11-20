@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
 import { createLineItemTemplate, listLineItemTemplates } from "@/lib/db";
 import { requireAdmin } from "@/lib/guard";
+import { stockMissingResponse } from "@/lib/stock-missing-response";
 
 export async function GET() {
   const { error } = await requireAdmin();
   if (error) return error;
-  return NextResponse.json(await listLineItemTemplates());
+  try {
+    return NextResponse.json(await listLineItemTemplates());
+  } catch (err) {
+    const missing = stockMissingResponse(err);
+    if (missing) return missing;
+    throw err;
+  }
 }
 
 export async function POST(request: Request) {

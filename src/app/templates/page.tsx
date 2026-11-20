@@ -1,16 +1,25 @@
 import { TemplateManager } from "@/components/TemplateManager";
 import { PageHeading, TemplateEmblem } from "@/components/Emblems";
+import { StockMissingNotice } from "@/components/StockMissingNotice";
 import { listItems, listLineItemTemplates } from "@/lib/db";
 import { requireAdminPage } from "@/lib/guard";
+import { isStockDataMissing } from "@/lib/stock-missing";
 
 export const dynamic = "force-dynamic";
 
 export default async function TemplatesPage() {
   await requireAdminPage();
-  const [templates, items] = await Promise.all([
-    listLineItemTemplates(),
-    listItems(),
-  ]);
+  let templates;
+  let items;
+  try {
+    [templates, items] = await Promise.all([
+      listLineItemTemplates(),
+      listItems(),
+    ]);
+  } catch (err) {
+    if (isStockDataMissing(err)) return <StockMissingNotice showSettingsLink />;
+    throw err;
+  }
 
   return (
     <div className="animate-rise">

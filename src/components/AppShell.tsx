@@ -16,6 +16,7 @@ import {
 } from "./Emblems";
 import { AccountMenu } from "./AccountMenu";
 import { BottomNav } from "./BottomNav";
+import { StockMissingNotice } from "./StockMissingNotice";
 import { useAuth } from "./AuthProvider";
 
 type LiveAlert = { title: string; body: string };
@@ -26,6 +27,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [companyName, setCompanyName] = useState("TSI INV");
   const [liveAlert, setLiveAlert] = useState<LiveAlert | null>(null);
+  const [stockMissing, setStockMissing] = useState(false);
   const isLogin = pathname === "/login";
   const isCrew = user?.role === "crew";
 
@@ -33,9 +35,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (isLogin) return;
     let cancelled = false;
     fetch("/api/settings")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!cancelled && data?.companyName) {
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        return { res, data };
+      })
+      .then(({ res, data }) => {
+        if (cancelled || !data) return;
+        if (data.code === "stock_missing") {
+          setStockMissing(true);
+          return;
+        }
+        if (res.ok && data.companyName) {
           setCompanyName(data.companyName);
         }
       })
@@ -179,7 +189,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <main>
-        {children}
+        {stockMissing && pathname !== "/settings" ? (
+          <StockMissingNotice showSettingsLink={user?.role === "admin"} />
+        ) : (
+          children
+        )}
       </main>
       <BottomNav crew={isCrew} />
     </div>
