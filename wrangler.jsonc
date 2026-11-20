@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tsi-inv",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-08-06",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "INVENTORY_KV",
+      "id": "8e13ee37e29a4ee386f645458bac206a"
+    }
+  ]
+}
